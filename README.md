@@ -213,15 +213,19 @@ Open your browser at **[http://localhost:8501](http://localhost:8501)**. You can
 
 To protect your daily browsing in real time:
 
-1. Open **Google Chrome** (or Brave / Edge) and navigate to:
+1. Open your browser and navigate to its extensions page:
+  - Chrome: `chrome://extensions`
+  - Brave: `brave://extensions`
+  - Edge: `edge://extensions`
+2. Turn on **Developer mode** using the toggle in the top-right corner.
+3. Click **Load unpacked** in the top-left corner.
+4. Select the project's `extension/` folder:
    ```text
-   chrome://extensions
+  /Users/ujjwalsingh/Desktop/internship/extension
    ```
-2. Toggle **"Developer mode"** on in the top-right corner.
-3. Click the **"Load unpacked"** button in the top-left corner.
-4. Select the `extension/` directory inside this repository.
-5. Click **Select Folder**. The PhishGuard AI shield will appear in your browser toolbar!
-6. Pin the extension to your toolbar. Now, every website you visit will be evaluated automatically.
+5. Click **Select Folder**. PhishGuard AI will be added to your browser.
+6. Click the extensions puzzle icon in the browser toolbar, then pin **PhishGuard AI**.
+  The extension will evaluate websites as you browse.
 
 *(Optional)* You can also view the standalone extension popup in your browser by running:
 ```bash
