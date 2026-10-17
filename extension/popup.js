@@ -64,10 +64,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   attachEvents();
 });
 
-// Load preferences from chrome.storage
+// Storage abstraction supporting both Chrome extension storage & standard browser localStorage
+const Storage = {
+  get: (keys, callback) => {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(keys, callback);
+    } else {
+      const result = {};
+      keys.forEach((key) => {
+        try {
+          const val = localStorage.getItem(`phishguard_${key}`);
+          if (val !== null) result[key] = JSON.parse(val);
+        } catch (e) {
+          result[key] = undefined;
+        }
+      });
+      callback(result);
+    }
+  },
+  set: (obj, callback) => {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set(obj, callback);
+    } else {
+      Object.entries(obj).forEach(([key, val]) => {
+        localStorage.setItem(`phishguard_${key}`, JSON.stringify(val));
+      });
+      if (callback) callback();
+    }
+  },
+};
+
+// Load preferences
 async function loadSettings() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(["apiUrl", "autoScan", "showBannerOnPhish"], (res) => {
+    Storage.get(["apiUrl", "autoScan", "showBannerOnPhish"], (res) => {
       inputApiUrl.value = res.apiUrl || DEFAULT_API;
       toggleAutoscan.checked = res.autoScan !== false;
       toggleBanner.checked = res.showBannerOnPhish !== false;
@@ -105,21 +135,27 @@ async function checkApiHealth() {
 // Detect Active Tab URL
 async function detectActiveTab() {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url) {
-      activeTabUrl = tab.url;
-      currentUrlDisplay.textContent = tab.url;
-      currentUrlDisplay.title = tab.url;
+    if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.query) {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.url) {
+        activeTabUrl = tab.url;
+        currentUrlDisplay.textContent = tab.url;
+        currentUrlDisplay.title = tab.url;
 
-      // Auto scan if valid http/https URL
-      if (tab.url.startsWith("http")) {
-        scanUrl(tab.url);
-      } else {
-        currentUrlDisplay.textContent = `${tab.url} (Internal Browser Page)`;
+        if (tab.url.startsWith("http")) {
+          scanUrl(tab.url);
+        } else {
+          currentUrlDisplay.textContent = `${tab.url} (Internal Browser Page)`;
+        }
+        return;
       }
-    } else {
-      currentUrlDisplay.textContent = "No active web page detected";
     }
+    // Standalone / Browser preview fallback
+    const fallbackUrl = "https://paypal-security-center.com/login.php";
+    activeTabUrl = fallbackUrl;
+    currentUrlDisplay.textContent = fallbackUrl;
+    currentUrlDisplay.title = fallbackUrl;
+    scanUrl(fallbackUrl);
   } catch (e) {
     currentUrlDisplay.textContent = "Unable to read active tab";
   }
@@ -237,7 +273,7 @@ function formatFeatureName(name) {
 // History Management
 // ─────────────────────────────────────────────────────────────
 function saveToHistory(data) {
-  chrome.storage.local.get(["scanHistory"], (res) => {
+  Storage.get(["scanHistory"], (res) => {
     let history = res.scanHistory || [];
     // remove existing entry with same url
     history = history.filter((h) => h.url !== data.url);
@@ -250,13 +286,13 @@ function saveToHistory(data) {
     });
     // keep only top 5
     history = history.slice(0, 5);
-    chrome.storage.local.set({ scanHistory: history });
+    Storage.set({ scanHistory: history });
     renderHistory(history);
   });
 }
 
 function loadScanHistory() {
-  chrome.storage.local.get(["scanHistory"], (res) => {
+  Storage.get(["scanHistory"], (res) => {
     renderHistory(res.scanHistory || []);
   });
 }
@@ -422,7 +458,7 @@ function attachEvents() {
     const autoScan = toggleAutoscan.checked;
     const showBannerOnPhish = toggleBanner.checked;
 
-    chrome.storage.local.set({ apiUrl, autoScan, showBannerOnPhish }, () => {
+    Storage.set({ apiUrl, autoScan, showBannerOnPhish }, () => {
       settingsPanel.classList.add("hidden");
       checkApiHealth();
     });
