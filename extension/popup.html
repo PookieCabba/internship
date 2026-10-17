@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhishGuard AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-shield">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4" stroke="#10b981" stroke-width="2.5"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">PhishGuard <span class="ai-tag">AI</span></h1>
+          <p class="brand-subtitle">Neural Cyber Defense</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="api-status-indicator" class="status-indicator" title="API Status: Checking...">
+          <span class="status-dot"></span>
+        </div>
+        <button id="btn-settings-toggle" class="icon-btn" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Settings Drawer (Hidden by default) -->
+    <div id="settings-panel" class="settings-panel hidden">
+      <div class="settings-header">
+        <h3>Configuration</h3>
+        <button id="btn-close-settings" class="icon-btn-sm">&times;</button>
+      </div>
+      <div class="settings-body">
+        <div class="input-group">
+          <label for="input-api-url">API Endpoint URL</label>
+          <div class="input-with-action">
+            <input type="text" id="input-api-url" placeholder="http://localhost:8000" />
+            <button id="btn-test-api" class="btn-sm">Test</button>
+          </div>
+          <span id="api-test-result" class="hint-text"></span>
+        </div>
+
+        <div class="setting-toggle-row">
+          <div>
+            <div class="toggle-title">Real-time Auto Scan</div>
+            <div class="toggle-desc">Analyze URLs automatically upon page navigation</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-autoscan" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-toggle-row">
+          <div>
+            <div class="toggle-title">In-Page Threat Banner</div>
+            <div class="toggle-desc">Show warning modal if high risk detected</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-banner" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <button id="btn-save-settings" class="btn-primary-sm">Save Preferences</button>
+      </div>
+    </div>
+
+    <!-- Active Tab Scanner Card -->
+    <section class="scan-section">
+      <div class="active-tab-box">
+        <div class="active-tab-label">CURRENT TAB URL</div>
+        <div id="current-url-display" class="current-url" title="Loading URL...">
+          Detecting current active tab...
+        </div>
+      </div>
+
+      <div class="input-mode-tabs">
+        <button id="tab-btn-current" class="tab-btn active">Active Tab</button>
+        <button id="tab-btn-manual" class="tab-btn">Inspect URL</button>
+      </div>
+
+      <!-- Manual input form (hidden by default) -->
+      <div id="manual-input-container" class="manual-input-container hidden">
+        <div class="input-wrapper">
+          <input type="text" id="manual-url-input" placeholder="Paste suspicious URL or link here..." />
+          <button id="btn-scan-manual" class="btn-scan">Scan</button>
+        </div>
+      </div>
+
+      <button id="btn-scan-current" class="btn-scan-full">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        Scan Active Page
+      </button>
+    </section>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state hidden">
+      <div class="radar-spinner"></div>
+      <p>Extracting 27 features & running neural inference...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="error-state hidden">
+      <div class="error-icon">⚠️</div>
+      <div id="error-message" class="error-text">API unreachable. Is the backend running?</div>
+      <button id="btn-retry" class="btn-sm">Retry</button>
+    </div>
+
+    <!-- Results Container -->
+    <section id="results-panel" class="results-panel hidden">
+      <!-- Verdict Card -->
+      <div id="verdict-card" class="verdict-card">
+        <div class="verdict-header">
+          <div id="verdict-icon" class="verdict-icon">🛡️</div>
+          <div>
+            <div id="verdict-title" class="verdict-title">SAFE WEBSITE</div>
+            <div id="verdict-risk" class="verdict-risk-badge badge-safe">LOW RISK</div>
+          </div>
+        </div>
+
+        <!-- Meter bar -->
+        <div class="prob-container">
+          <div class="prob-header">
+            <span>Phishing Probability</span>
+            <span id="prob-percentage" class="prob-val">2.4%</span>
+          </div>
+          <div class="prob-bar-bg">
+            <div id="prob-bar-fill" class="prob-bar-fill" style="width: 2.4%;"></div>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <span class="metric-label">Model Confidence</span>
+            <span id="metric-confidence" class="metric-val">98.2%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Inference Time</span>
+            <span id="metric-latency" class="metric-val">12ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Warnings -->
+      <div id="warnings-box" class="warnings-card hidden">
+        <div class="card-subtitle">AI Threat Signals</div>
+        <ul id="warnings-list" class="warnings-bullet-list"></ul>
+      </div>
+
+      <!-- Feature Telemetry Inspector -->
+      <div class="features-accordion">
+        <button id="btn-toggle-telemetry" class="accordion-header">
+          <span>Lexical Telemetry (27 Features)</span>
+          <span id="telemetry-arrow">▼</span>
+        </button>
+        <div id="telemetry-content" class="accordion-content hidden">
+          <div id="features-grid" class="features-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Scans History Footer -->
+    <footer class="app-footer">
+      <div class="history-label">Recent Threat Assessments:</div>
+      <div id="history-pills" class="history-pills">
+        <span class="no-history">No recent scans recorded</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

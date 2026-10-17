@@ -1,0 +1,170 @@
+/**
+ * content.css — PhishGuard in-page security modal styles
+ */
+
+#phishguard-alert-container {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  transition: opacity 0.3s ease !important;
+}
+
+#phishguard-alert-container .phishguard-backdrop {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+#phishguard-alert-container .phishguard-modal {
+  position: relative !important;
+  width: 90% !important;
+  max-width: 580px !important;
+  background: #0f172a !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(239, 68, 68, 0.25) !important;
+  color: #f8fafc !important;
+  padding: 28px !important;
+  animation: phishguard-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes phishguard-pop {
+  from {
+    transform: scale(0.92) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+#phishguard-alert-container .phishguard-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-bottom: 20px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding-bottom: 16px !important;
+}
+
+#phishguard-alert-container .phishguard-icon-box {
+  font-size: 36px !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  width: 56px !important;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+}
+
+#phishguard-alert-container .phishguard-title {
+  margin: 0 0 4px 0 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.02em !important;
+}
+
+#phishguard-alert-container .phishguard-badge {
+  display: inline-block !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 3px 8px !important;
+  border-radius: 9999px !important;
+}
+
+#phishguard-alert-container .phishguard-badge-danger {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+}
+
+#phishguard-alert-container .phishguard-lead {
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  color: #cbd5e1 !important;
+  margin-bottom: 16px !important;
+}
+
+#phishguard-alert-container .phishguard-warnings-box {
+  background: rgba(24, 30, 48, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  padding: 14px 16px !important;
+  margin-bottom: 16px !important;
+}
+
+#phishguard-alert-container .phishguard-box-title {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  color: #94a3b8 !important;
+  margin-bottom: 8px !important;
+}
+
+#phishguard-alert-container .phishguard-warnings-list {
+  margin: 0 !important;
+  padding: 0 0 0 14px !important;
+  list-style: none !important;
+  font-size: 13px !important;
+  color: #fca5a5 !important;
+  line-height: 1.6 !important;
+}
+
+#phishguard-alert-container .phishguard-warnings-list li {
+  margin-bottom: 4px !important;
+}
+
+#phishguard-alert-container .phishguard-advice {
+  font-size: 13px !important;
+  color: #e2e8f0 !important;
+  line-height: 1.4 !important;
+  margin-bottom: 24px !important;
+}
+
+#phishguard-alert-container .phishguard-actions {
+  display: flex !important;
+  gap: 12px !important;
+}
+
+#phishguard-alert-container .phishguard-btn {
+  flex: 1 !important;
+  padding: 12px 18px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  text-align: center !important;
+}
+
+#phishguard-alert-container .phishguard-btn-primary {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+#phishguard-alert-container .phishguard-btn-primary:hover {
+  background: #2563eb !important;
+}
+
+#phishguard-alert-container .phishguard-btn-secondary {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+#phishguard-alert-container .phishguard-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
