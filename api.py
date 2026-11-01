@@ -84,7 +84,6 @@ METADATA_PATH = os.getenv("METADATA_PATH", "models/model_metadata.json")
 
 # External Threat Intelligence Keys (Optional enrichment)
 GOOGLE_SAFE_BROWSING_API_KEY = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
-PHISHTANK_API_KEY = os.getenv("PHISHTANK_API_KEY", "")
 
 # Dynamic CORS Configuration
 raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
@@ -119,12 +118,10 @@ async def lifespan(app: FastAPI):
 
     # ── Check External API Keys (Non-blocking warning) ──
     missing_keys = []
-    placeholder_values = {"", "your_key_here", "your_google_key_here", "your_phishtank_key_here"}
+    placeholder_values = {"", "your_key_here", "your_google_key_here"}
 
     if GOOGLE_SAFE_BROWSING_API_KEY in placeholder_values:
         missing_keys.append("GOOGLE_SAFE_BROWSING_API_KEY")
-    if PHISHTANK_API_KEY in placeholder_values:
-        missing_keys.append("PHISHTANK_API_KEY")
 
     if missing_keys:
         logger.warning(
@@ -246,7 +243,7 @@ class PredictionResponse(BaseModel):
         None,
         description=(
             "Live threat intelligence results from external feeds "
-            "(Google Safe Browsing, PhishTank). None if APIs are unavailable."
+            "(Google Safe Browsing, URLhaus). None if APIs are unavailable."
         ),
     )
 

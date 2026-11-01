@@ -2,7 +2,7 @@
  * popup.js — Logic & Controller for PhishGuard AI Popup
  */
 
-const DEFAULT_API = "http://localhost:8000";
+const DEFAULT_API = "http://127.0.0.1:8000";
 
 // DOM Elements
 const statusDot = document.querySelector(".status-dot");
@@ -98,7 +98,11 @@ const Storage = {
 async function loadSettings() {
   return new Promise((resolve) => {
     Storage.get(["apiUrl", "autoScan", "showBannerOnPhish"], (res) => {
-      inputApiUrl.value = res.apiUrl || DEFAULT_API;
+      const savedApiUrl = res.apiUrl || DEFAULT_API;
+      inputApiUrl.value = savedApiUrl === "http://localhost:8000" ? DEFAULT_API : savedApiUrl;
+      if (savedApiUrl === "http://localhost:8000") {
+        Storage.set({ apiUrl: DEFAULT_API });
+      }
       toggleAutoscan.checked = res.autoScan !== false;
       toggleBanner.checked = res.showBannerOnPhish !== false;
       resolve();

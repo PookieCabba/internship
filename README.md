@@ -103,7 +103,7 @@ Phishing remains the #1 initial access vector in cyber attacks, accounting for o
   - Updates browser action badges in real time (🟢 **✓**, 🟡 **⚠**, 🔴 **!**).
   - Injects a high-visibility warning modal on verified malicious domains with a *"Take Me to Safety"* escape button.
   - Includes a manual link inspector to test suspicious links before opening them.
-  - Allows switching between local (`http://localhost:8000`) and cloud-hosted backends with a built-in latency tester.
+  - Allows switching between local (`http://127.0.0.1:8000`) and cloud-hosted backends with a built-in latency tester.
 - **🐳 Cloud & Container Ready**: Includes `Dockerfile`, `docker-compose.yml`, `render.yaml`, and `Procfile`.
 
 ---

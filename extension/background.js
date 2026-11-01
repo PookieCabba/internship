@@ -3,7 +3,7 @@
  * Manages background URL monitoring, caching, badge status, and API communication.
  */
 
-const DEFAULT_API_BASE = "http://localhost:8000";
+const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 const CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes cache
 const urlCache = new Map();
 
@@ -27,7 +27,8 @@ chrome.runtime.onInstalled.addListener(() => {
 async function getApiBaseUrl() {
   return new Promise((resolve) => {
     chrome.storage.local.get(["apiUrl"], (res) => {
-      resolve(res.apiUrl || DEFAULT_API_BASE);
+      const apiBase = res.apiUrl || DEFAULT_API_BASE;
+      resolve(apiBase === "http://localhost:8000" ? DEFAULT_API_BASE : apiBase);
     });
   });
 }

@@ -5,7 +5,7 @@ threat_intel.py — Live Threat Intelligence Integrations
 Provides async wrappers around external threat-reputation APIs:
 
     1. Google Safe Browsing Lookup API v4
-    2. PhishTank URL Check API
+    2. URLhaus API (abuse.ch)
 
 Each function is fully fault-tolerant: if the API key is missing,
 the request times out, or the remote service returns an error,
@@ -126,75 +126,78 @@ def check_google_safe_browsing(url: str, api_key: str) -> Dict[str, Any]:
 
 
 # ──────────────────────────────────────────────────────────────
-# 2. PhishTank URL Check API
+# 2. URLhaus API (abuse.ch)
 # ──────────────────────────────────────────────────────────────
 
-def check_phishtank(url: str, api_key: str) -> Dict[str, Any]:
+def check_urlhaus(url: str) -> Dict[str, Any]:
     """
-    Query PhishTank to determine if a URL is a known phishing page.
+    Query URLhaus (abuse.ch) to determine if a URL is a known malicious or phishing page.
+
+    Endpoint: POST https://urlhaus-api.abuse.ch/v1/url/
+    Body: url=<the_url> (form encoded, not JSON)
+    No API key required.
 
     Args:
-        url:     The URL to check.
-        api_key: PhishTank application key.
+        url: The URL to check.
 
     Returns:
         dict with keys:
-            is_phishing (bool | None) — True if confirmed phish, None if unavailable.
-            verified    (bool)        — Whether PhishTank has verified the entry.
-            source      (str)        — Always "phishtank" or "unavailable".
+            is_phishing  (bool | None) — True if known threat, False if clean, None if unavailable.
+            query_status (str | None)  — "is_phishing", "no_results", "not_in_database", etc.
+            source       (str)        — "urlhaus" or "unavailable".
     """
-    placeholder_values = {"", "your_key_here", "your_phishtank_key_here"}
+    endpoint = "https://urlhaus-api.abuse.ch/v1/url/"
+    form_data = {"url": url}
+    headers = {"User-Agent": "phishguard-ai/1.0"}
 
-    if not api_key or api_key in placeholder_values:
-        logger.debug("PhishTank: No API key configured — skipping.")
-        return {"is_phishing": None, "verified": False, "source": "unavailable"}
-
-    endpoint = "https://checkurl.phishtank.com/checkurl/"
-
-    form_data = {
-        "url": quote_plus(url),
-        "format": "json",
-        "app_key": api_key,
-    }
+    # Optional Auth-Key if provided in environment
+    auth_key = os.getenv("URLHAUS_AUTH_KEY") or os.getenv("URLHAUS_API_KEY")
+    if auth_key:
+        headers["Auth-Key"] = auth_key
 
     try:
         response = requests.post(
             endpoint,
             data=form_data,
+            headers=headers,
             timeout=THREAT_INTEL_TIMEOUT,
-            headers={"User-Agent": "phishguard-ai/1.0"},
         )
-        response.raise_for_status()
+        if response.status_code != 200:
+            logger.warning(f"URLhaus: HTTP {response.status_code} for {url}")
+            return {"is_phishing": None, "query_status": None, "source": "unavailable"}
+
         data = response.json()
+        query_status = data.get("query_status", "")
 
-        results = data.get("results", {})
-        in_database = results.get("in_database", False)
-        is_phish = results.get("valid", False)  # "valid" = confirmed phish
-        verified = results.get("verified", False)
-
-        if in_database and is_phish:
-            logger.info(f"PhishTank: PHISHING CONFIRMED for {url} (verified={verified})")
+        if query_status in ("is_phishing", "ok"):
+            logger.info(f"URLhaus: THREAT CONFIRMED for {url} (query_status={query_status})")
             return {
                 "is_phishing": True,
-                "verified": bool(verified),
-                "source": "phishtank",
+                "query_status": query_status,
+                "source": "urlhaus",
+            }
+        elif query_status in ("no_results", "not_in_database"):
+            return {
+                "is_phishing": False,
+                "query_status": query_status,
+                "source": "urlhaus",
             }
 
         return {
             "is_phishing": False,
-            "verified": False,
-            "source": "phishtank",
+            "query_status": query_status,
+            "source": "urlhaus",
         }
 
     except requests.exceptions.Timeout:
-        logger.warning(f"PhishTank: Timeout after {THREAT_INTEL_TIMEOUT}s for {url}")
-        return {"is_phishing": None, "verified": False, "source": "unavailable"}
+        logger.warning(f"URLhaus: Timeout after {THREAT_INTEL_TIMEOUT}s for {url}")
+        return {"is_phishing": None, "query_status": None, "source": "unavailable"}
     except requests.exceptions.RequestException as e:
-        logger.warning(f"PhishTank: Request error for {url}: {e}")
-        return {"is_phishing": None, "verified": False, "source": "unavailable"}
+        logger.warning(f"URLhaus: Request error for {url}: {e}")
+        return {"is_phishing": None, "query_status": None, "source": "unavailable"}
     except Exception as e:
-        logger.error(f"PhishTank: Unexpected error for {url}: {e}")
-        return {"is_phishing": None, "verified": False, "source": "unavailable"}
+        logger.error(f"URLhaus: Unexpected error for {url}: {e}")
+        return {"is_phishing": None, "query_status": None, "source": "unavailable"}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -215,11 +218,10 @@ async def run_threat_intel(url: str) -> Dict[str, Any]:
     Returns:
         dict with keys:
             google_safe_browsing  — Result from Google Safe Browsing
-            phishtank             — Result from PhishTank
+            urlhaus               — Result from URLhaus (abuse.ch)
             any_threat_detected   — True if ANY feed flagged the URL
     """
     google_key = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
-    phishtank_key = os.getenv("PHISHTANK_API_KEY", "")
 
     loop = asyncio.get_event_loop()
 
@@ -229,39 +231,39 @@ async def run_threat_intel(url: str) -> Dict[str, Any]:
             loop.run_in_executor(None, check_google_safe_browsing, url, google_key),
             timeout=THREAT_INTEL_TIMEOUT + 1,  # Slightly longer than request timeout
         )
-        phishtank_future = asyncio.wait_for(
-            loop.run_in_executor(None, check_phishtank, url, phishtank_key),
+        urlhaus_future = asyncio.wait_for(
+            loop.run_in_executor(None, check_urlhaus, url),
             timeout=THREAT_INTEL_TIMEOUT + 1,
         )
 
         results = await asyncio.gather(
-            google_future, phishtank_future,
+            google_future, urlhaus_future,
             return_exceptions=True,
         )
     except Exception as e:
         logger.error(f"Threat intel gather failed: {e}")
         results = [
             {"is_threat": None, "threat_types": [], "source": "unavailable"},
-            {"is_phishing": None, "verified": False, "source": "unavailable"},
+            {"is_phishing": None, "query_status": None, "source": "unavailable"},
         ]
 
     # Unpack results, replacing exceptions with safe defaults
     google_result = results[0] if isinstance(results[0], dict) else {
         "is_threat": None, "threat_types": [], "source": "unavailable",
     }
-    phishtank_result = results[1] if isinstance(results[1], dict) else {
-        "is_phishing": None, "verified": False, "source": "unavailable",
+    urlhaus_result = results[1] if isinstance(results[1], dict) else {
+        "is_phishing": None, "query_status": None, "source": "unavailable",
     }
 
     # Determine if ANY source flagged the URL
     any_threat = False
     if google_result.get("is_threat") is True:
         any_threat = True
-    if phishtank_result.get("is_phishing") is True:
+    if urlhaus_result.get("is_phishing") is True:
         any_threat = True
 
     return {
         "google_safe_browsing": google_result,
-        "phishtank": phishtank_result,
+        "urlhaus": urlhaus_result,
         "any_threat_detected": any_threat,
     }

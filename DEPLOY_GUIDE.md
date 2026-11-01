@@ -25,9 +25,10 @@ Before starting, ensure you have:
 - A [Render](https://render.com) account (free tier, no credit card required).
 - A [Streamlit Community Cloud](https://streamlit.io/cloud) account (free, connects to GitHub).
 - Google Chrome browser installed locally.
-- (Optional) API keys for live threat intelligence:
+- (Optional) API key for live Google Safe Browsing:
   - [Google Safe Browsing API Key](https://console.cloud.google.com/)
-  - [PhishTank API Key](https://phishtank.org/developer_info.php)
+  *(URLhaus threat intelligence by abuse.ch is pre-configured with zero API key required)*
+
 
 ---
 
@@ -99,8 +100,8 @@ If you prefer manual setup:
 | `PYTHON_VERSION` | `3.11.0` | Python runtime version |
 | `ENVIRONMENT` | `production` | App environment |
 | `ALLOWED_ORIGINS` | `*` *(or your Streamlit Cloud URL)* | Allowed CORS origins for browser/dashboard access |
-| `GOOGLE_SAFE_BROWSING_API_KEY` | *(your-key-or-leave-blank)* | Optional live Google Safe Browsing lookups |
-| `PHISHTANK_API_KEY` | *(your-key-or-leave-blank)* | Optional live PhishTank verified database lookups |
+| `GOOGLE_SAFE_BROWSING_API_KEY` | *(your-key-or-leave-blank)* | Optional live Google Safe Browsing lookups (URLhaus is enabled automatically) |
+
 
 6. Click **Create Web Service**.
 7. Wait 2–4 minutes for dependencies to install and the build to complete.
