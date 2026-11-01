@@ -36,11 +36,19 @@ from typing import Dict, Optional
 # ──────────────────────────────────────────────────────────────
 # Configuration
 # ──────────────────────────────────────────────────────────────
-API_BASE_URL = "http://localhost:8000"
+try:
+    if "BACKEND_URL" in st.secrets:
+        API_BASE_URL = str(st.secrets["BACKEND_URL"]).rstrip("/")
+    else:
+        API_BASE_URL = "http://localhost:8000"
+except Exception:
+    API_BASE_URL = "http://localhost:8000"
+
 PREDICT_URL = f"{API_BASE_URL}/predict"
 BATCH_URL = f"{API_BASE_URL}/predict/batch"
 HEALTH_URL = f"{API_BASE_URL}/health"
 MODEL_INFO_URL = f"{API_BASE_URL}/model/info"
+
 
 
 # ──────────────────────────────────────────────────────────────

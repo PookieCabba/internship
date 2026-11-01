@@ -151,11 +151,9 @@ async function detectActiveTab() {
       }
     }
     // Standalone / Browser preview fallback
-    const fallbackUrl = "https://paypal-security-center.com/login.php";
-    activeTabUrl = fallbackUrl;
-    currentUrlDisplay.textContent = fallbackUrl;
-    currentUrlDisplay.title = fallbackUrl;
-    scanUrl(fallbackUrl);
+    activeTabUrl = "";
+    currentUrlDisplay.textContent = "Navigate to a website to scan it";
+    currentUrlDisplay.title = "Open a webpage to get started";
   } catch (e) {
     currentUrlDisplay.textContent = "Unable to read active tab";
   }

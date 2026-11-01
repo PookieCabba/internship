@@ -26,9 +26,18 @@ import os
 import json
 import logging
 import time
+import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
+
+# Safely attempt to load environment variables from .env file
+try:
+    # pyrefly: ignore[missing-import]
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 import numpy as np
 # pyrefly: ignore[missing-import]
@@ -49,19 +58,40 @@ from features import (
     FEATURE_NAMES,
 )
 
-# ──────────────────────────────────────────────────────────────
-# Configuration
-# ──────────────────────────────────────────────────────────────
-MODEL_PATH = os.getenv("MODEL_PATH", "models/phishing_model.joblib")
-SCALER_PATH = os.getenv("SCALER_PATH", "models/feature_scaler.joblib")
-METADATA_PATH = os.getenv("METADATA_PATH", "models/model_metadata.json")
+# Import live threat intelligence integrations
+from threat_intel import run_threat_intel
 
+# ──────────────────────────────────────────────────────────────
+# Logging Configuration
+# ──────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s │ %(levelname)-8s │ %(message)s",
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────────────────────
+# Environment Configuration & Fallbacks
+# ──────────────────────────────────────────────────────────────
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "8000"))
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+MODEL_PATH = os.getenv("MODEL_PATH", "models/phishing_model.joblib")
+SCALER_PATH = os.getenv("SCALER_PATH", "models/feature_scaler.joblib")
+METADATA_PATH = os.getenv("METADATA_PATH", "models/model_metadata.json")
+
+# External Threat Intelligence Keys (Optional enrichment)
+GOOGLE_SAFE_BROWSING_API_KEY = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
+PHISHTANK_API_KEY = os.getenv("PHISHTANK_API_KEY", "")
+
+# Dynamic CORS Configuration
+raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if raw_origins.strip() == "*":
+    ALLOWED_ORIGINS = ["*"]
+else:
+    ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -82,11 +112,29 @@ model_state: Dict[str, Any] = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load ML model and scaler when the API starts up."""
-    logger.info("=" * 50)
-    logger.info("  Loading model artifacts...")
+    """Load ML model, scaler, and verify environment configuration."""
+    logger.info("=" * 60)
+    logger.info("  Starting PhishGuard AI API Backend...")
+    logger.info(f"  Environment: {ENVIRONMENT}")
 
-    # Load the trained model
+    # ── Check External API Keys (Non-blocking warning) ──
+    missing_keys = []
+    placeholder_values = {"", "your_key_here", "your_google_key_here", "your_phishtank_key_here"}
+
+    if GOOGLE_SAFE_BROWSING_API_KEY in placeholder_values:
+        missing_keys.append("GOOGLE_SAFE_BROWSING_API_KEY")
+    if PHISHTANK_API_KEY in placeholder_values:
+        missing_keys.append("PHISHTANK_API_KEY")
+
+    if missing_keys:
+        logger.warning(
+            f"⚠️  Missing or placeholder external threat API keys: {', '.join(missing_keys)}. "
+            "Running in standalone heuristic ML mode. Primary 27-feature model remains fully functional."
+        )
+    else:
+        logger.info("  ✓ External threat intelligence keys verified.")
+
+    # ── Load Model Artifacts ──
     if not os.path.exists(MODEL_PATH):
         logger.error(f"Model file not found: {MODEL_PATH}")
         logger.error("Run `python train_model.py` first.")
@@ -95,7 +143,6 @@ async def lifespan(app: FastAPI):
     model_state["model"] = joblib.load(MODEL_PATH)
     logger.info(f"  ✓ Model loaded from: {MODEL_PATH}")
 
-    # Load the feature scaler
     if not os.path.exists(SCALER_PATH):
         logger.error(f"Scaler file not found: {SCALER_PATH}")
         raise FileNotFoundError(f"Scaler file not found: {SCALER_PATH}")
@@ -103,15 +150,14 @@ async def lifespan(app: FastAPI):
     model_state["scaler"] = joblib.load(SCALER_PATH)
     logger.info(f"  ✓ Scaler loaded from: {SCALER_PATH}")
 
-    # Load model metadata (optional but useful)
     if os.path.exists(METADATA_PATH):
         with open(METADATA_PATH, "r") as f:
             model_state["metadata"] = json.load(f)
         logger.info(f"  ✓ Metadata loaded from: {METADATA_PATH}")
 
     model_state["loaded_at"] = datetime.now().isoformat()
-    logger.info("  Model artifacts loaded successfully!")
-    logger.info("=" * 50)
+    logger.info("  ✓ All systems operational.")
+    logger.info("=" * 60)
 
     yield  # Application runs here
 
@@ -133,14 +179,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Enable CORS for the Streamlit frontend
+# Enable CORS using environment configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # In production, restrict to your domain
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True if ALLOWED_ORIGINS != ["*"] else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 # ──────────────────────────────────────────────────────────────
@@ -195,6 +242,13 @@ class PredictionResponse(BaseModel):
     features: Dict[str, float]
     warnings: List[str]
     inference_time_ms: float
+    threat_intel: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Live threat intelligence results from external feeds "
+            "(Google Safe Browsing, PhishTank). None if APIs are unavailable."
+        ),
+    )
 
 
 class BatchPredictionResponse(BaseModel):
@@ -243,7 +297,7 @@ def classify_risk(probability: float) -> str:
         return "Critical"
 
 
-def predict_url(url: str) -> PredictionResponse:
+async def predict_url(url: str) -> PredictionResponse:
     """
     Run the full prediction pipeline for a single URL.
 
@@ -253,6 +307,8 @@ def predict_url(url: str) -> PredictionResponse:
         3. Get probability from the trained model
         4. Classify risk level
         5. Generate human-readable warnings
+        6. Run live threat intelligence (non-blocking)
+        7. Override risk level if threat intel confirms phishing
 
     Args:
         url: The URL string to classify.
@@ -293,6 +349,30 @@ def predict_url(url: str) -> PredictionResponse:
         # Step 6: Generate warnings
         warnings = get_feature_warnings(features)
 
+        # Step 7: Run live threat intelligence (non-blocking, fault-tolerant)
+        threat_intel = None
+        try:
+            threat_intel = await run_threat_intel(url)
+
+            # Override: if ANY external feed confirms phishing,
+            # escalate the risk level to at least "High Risk"
+            if threat_intel.get("any_threat_detected") is True:
+                is_phishing = True
+                if risk_level in ("Safe", "Low Risk", "Medium Risk"):
+                    risk_level = "High Risk"
+                    warnings.append(
+                        "⚠️ External threat intelligence confirmed this URL "
+                        "as malicious — risk level overridden to High Risk."
+                    )
+                    logger.warning(
+                        f"Threat intel override for {url}: "
+                        f"ML said '{classify_risk(phishing_prob)}' → forced 'High Risk'"
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Threat intel failed for {url} (ML result still valid): {e}"
+            )
+
         # Track prediction count
         model_state["prediction_count"] += 1
 
@@ -307,8 +387,11 @@ def predict_url(url: str) -> PredictionResponse:
             features=features,
             warnings=warnings,
             inference_time_ms=round(elapsed_ms, 2),
+            threat_intel=threat_intel,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Prediction failed for URL '{url}': {e}")
         raise HTTPException(
@@ -341,7 +424,7 @@ async def predict_single(request: URLRequest):
     ```
     """
     logger.info(f"Prediction request: {request.url}")
-    result = predict_url(request.url)
+    result = await predict_url(request.url)
     logger.info(
         f"  → {result.risk_level} "
         f"(prob={result.phishing_probability:.4f}, "
@@ -368,7 +451,7 @@ async def predict_batch(request: BatchURLRequest):
     predictions = []
     for url in request.urls:
         try:
-            pred = predict_url(url)
+            pred = await predict_url(url)
             predictions.append(pred)
         except HTTPException:
             # Include a failed prediction marker
@@ -381,6 +464,7 @@ async def predict_batch(request: BatchURLRequest):
                 features={},
                 warnings=["⚠️ Feature extraction failed for this URL."],
                 inference_time_ms=0.0,
+                threat_intel=None,
             ))
 
     total_phishing = sum(1 for p in predictions if p.is_phishing)
@@ -458,8 +542,8 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "api:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        host=HOST,
+        port=PORT,
+        reload=True if ENVIRONMENT == "development" else False,
         log_level="info",
     )

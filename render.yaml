@@ -9,3 +9,11 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: ENVIRONMENT
+        value: production
+      - key: GOOGLE_SAFE_BROWSING_API_KEY
+        sync: false
+      - key: PHISHTANK_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

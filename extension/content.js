@@ -58,26 +58,43 @@ function displaySecurityBanner(data) {
         <button id="phishguard-btn-safe" class="phishguard-btn phishguard-btn-primary">
           ← Take Me to Safety
         </button>
-        <button id="phishguard-btn-dismiss" class="phishguard-btn phishguard-btn-secondary">
-          Dismiss & Proceed with Caution
-        </button>
+        <a id="phishguard-btn-dismiss" href="#" class="phishguard-proceed-link">
+          I understand the risks — proceed anyway
+        </a>
       </div>
     </div>
   `;
 
   document.documentElement.appendChild(container);
 
-  // Button listeners
+  // "Take Me to Safety" navigates away from the page
   document.getElementById("phishguard-btn-safe").addEventListener("click", () => {
     window.location.href = "https://www.google.com";
   });
 
-  document.getElementById("phishguard-btn-dismiss").addEventListener("click", () => {
+  // "Proceed anyway" — remove the overlay so the user can interact with
+  // the underlying page.  The banner does NOT block navigation; the user
+  // explicitly acknowledges the risk by clicking this link.
+  document.getElementById("phishguard-btn-dismiss").addEventListener("click", (e) => {
+    e.preventDefault();
+    container.style.transition = "opacity 0.3s ease";
     container.style.opacity = "0";
     setTimeout(() => {
       container.remove();
     }, 300);
   });
+
+  // Allow clicking the backdrop itself to dismiss (non-blocking navigation)
+  const backdrop = container.querySelector(".phishguard-backdrop");
+  if (backdrop) {
+    backdrop.addEventListener("click", () => {
+      container.style.transition = "opacity 0.3s ease";
+      container.style.opacity = "0";
+      setTimeout(() => {
+        container.remove();
+      }, 300);
+    });
+  }
 }
 
 function escapeHtml(str) {
