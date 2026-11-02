@@ -86,11 +86,11 @@ METADATA_PATH = os.getenv("METADATA_PATH", "models/model_metadata.json")
 GOOGLE_SAFE_BROWSING_API_KEY = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
 
 # Dynamic CORS Configuration
-raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
-if raw_origins.strip() == "*":
-    ALLOWED_ORIGINS = ["*"]
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if allowed_origins_env:
+    ALLOWED_ORIGINS = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 else:
-    ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    ALLOWED_ORIGINS = ["http://localhost:8501", "http://localhost:3000"]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True if ALLOWED_ORIGINS != ["*"] else False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
